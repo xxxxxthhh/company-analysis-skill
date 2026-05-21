@@ -1,0 +1,100 @@
+{
+  "AAPL": {
+    "industry_pack": "software-platform",
+    "peers": [
+      "MSFT",
+      "GOOGL",
+      "AMZN",
+      "META"
+    ],
+    "rationale": "Mega-cap platform/ecosystem peers; use as broad market expectation context, not perfect business-model comps."
+  },
+  "MSFT": {
+    "industry_pack": "software-platform",
+    "peers": [
+      "AAPL",
+      "GOOGL",
+      "AMZN",
+      "ORCL",
+      "CRM"
+    ],
+    "rationale": "Platform/software/cloud peers with enterprise and hyperscale overlap."
+  },
+  "NET": {
+    "industry_pack": "saas-cloud",
+    "peers": [
+      "DDOG",
+      "CRWD",
+      "ZS",
+      "FSLY",
+      "AKAM"
+    ],
+    "rationale": "Cloud infrastructure/security/edge software peers; curated for metric comparison rather than GICS purity."
+  },
+  "CRM": {
+    "industry_pack": "saas-cloud",
+    "peers": [
+      "NOW",
+      "ADBE",
+      "WDAY",
+      "ORCL",
+      "MSFT"
+    ],
+    "rationale": "Large-cap enterprise SaaS/platform peers."
+  },
+  "COIN": {
+    "industry_pack": "fintech-crypto-infra",
+    "peers": [
+      "HOOD",
+      "SQ",
+      "PYPL",
+      "IBKR",
+      "CME"
+    ],
+    "rationale": "Crypto exchange, brokerage, payments, and market infrastructure peers; imperfect but useful for take-rate and volume context."
+  },
+  "CRCL": {
+    "industry_pack": "fintech-crypto-infra",
+    "peers": [
+      "COIN",
+      "HOOD",
+      "SQ",
+      "PYPL",
+      "CME"
+    ],
+    "rationale": "Stablecoin/crypto infra comps are imperfect; use as public-market proxy set."
+  },
+  "JPM": {
+    "industry_pack": "banks",
+    "peers": [
+      "BAC",
+      "WFC",
+      "C",
+      "GS",
+      "MS"
+    ],
+    "rationale": "US money-center and capital-markets bank peers."
+  },
+  "PDD": {
+    "industry_pack": "ecommerce-consumer",
+    "peers": [
+      "BABA",
+      "JD",
+      "MELI",
+      "AMZN",
+      "SE"
+    ],
+    "rationale": "E-commerce/marketplace peers across China and global marketplace models."
+  },
+  "NVDA": {
+    "industry_pack": "semiconductors",
+    "peers": [
+      "AMD",
+      "AVGO",
+      "INTC",
+      "QCOM",
+      "TSM"
+    ],
+    "rationale": "AI accelerator, semiconductor, foundry, and fabless peer context."
+  }
+}
