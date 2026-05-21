@@ -1,0 +1,30 @@
+"""Metric pack: SaaS / Cloud."""
+from __future__ import annotations
+
+from typing import Any
+
+from company_analysis.analysts.contradiction_hunter import find_contradictions
+
+KEY_METRICS = "ARR, NRR/GRR, RPO, CAC payback, Rule of 40, gross retention, SBC"
+
+
+def analyze(raw_data: dict[str, Any]) -> dict[str, Any]:
+    # v0.1 interface contract. Real implementations should map connector
+    # outputs into normalized metric values, each with source provenance.
+    normalized_metrics: dict[str, Any] = {}
+    contradictions = find_contradictions(normalized_metrics)
+    return {
+        "industry": "SaaS / Cloud",
+        "company": {"ticker": raw_data.get("ticker")},
+        "key_metric_definitions": KEY_METRICS,
+        "key_metrics": [],
+        "insights": [],
+        "contradictions": contradictions,
+        "bear_case": [],
+        "falsification_triggers": [],
+        "missing_data": [
+            "Populate SaaS / Cloud metrics from SEC/company IR/market data connectors",
+            "Add peer comparison matrix",
+            "Add management track record evidence",
+        ],
+    }
