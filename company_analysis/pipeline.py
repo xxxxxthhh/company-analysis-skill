@@ -11,23 +11,61 @@ from pathlib import Path
 from typing import Any
 
 from .analysts.quality_gate import validate_report_payload
+from .connectors import fetch_earnings_calendar, fetch_news, fetch_sec_data, fetch_yahoo_data
 from .metric_packs import load_metric_pack
 
 
 def collect_raw_data(ticker: str) -> dict[str, Any]:
-    """Collect public-first raw data.
+    """Collect public-first raw data from multiple connectors.
 
-    This function intentionally returns a transparent raw-data object. Never
-    store only LLM summaries; keep source URLs and access dates.
+    This function returns a transparent raw-data object with full provenance.
+    Never store only LLM summaries; keep source URLs and access dates.
     """
+    access_date = str(date.today())
+
+    sec_data = fetch_sec_data(ticker)
+    yahoo_data = fetch_yahoo_data(ticker)
+    news_data = fetch_news(ticker)
+    earnings_data = fetch_earnings_calendar(ticker)
+
+    # Merge all sources for traceability
+    all_sources = []
+    all_sources.extend(sec_data.get("sources", []))
+    all_sources.extend(yahoo_data.get("sources", []))
+    all_sources.extend(news_data.get("sources", []))
+    all_sources.extend(earnings_data.get("sources", []))
+
     return {
         "ticker": ticker,
-        "access_date": str(date.today()),
-        "sec": {},
-        "market": {},
-        "news": [],
-        "earnings_calendar": {},
-        "sources": [],
+        "access_date": access_date,
+        "sec": {
+            "cik": sec_data.get("cik"),
+            "company_facts": sec_data.get("company_facts", {}),
+            "recent_filings": sec_data.get("recent_filings", []),
+        },
+        "market": {
+            "summary": yahoo_data.get("summary", {}),
+            "financials": yahoo_data.get("financials", {}),
+            "income_statement": yahoo_data.get("income_statement", {}),
+            "balance_sheet": yahoo_data.get("balance_sheet", {}),
+            "cash_flow": yahoo_data.get("cash_flow", {}),
+            "earnings_history": yahoo_data.get("earnings_history", {}),
+            "price_history": yahoo_data.get("price_history", {}),
+        },
+        "news": news_data.get("items", []),
+        "earnings_calendar": {
+            "next_date": earnings_data.get("calendar", {}).get("next_earnings_date"),
+            "history": earnings_data.get("earnings_history", []),
+            "consensus": {
+                "eps_average": earnings_data.get("calendar", {}).get("earnings_average"),
+                "eps_low": earnings_data.get("calendar", {}).get("earnings_low"),
+                "eps_high": earnings_data.get("calendar", {}).get("earnings_high"),
+                "revenue_average": earnings_data.get("calendar", {}).get("revenue_average"),
+                "revenue_low": earnings_data.get("calendar", {}).get("revenue_low"),
+                "revenue_high": earnings_data.get("calendar", {}).get("revenue_high"),
+            },
+        },
+        "sources": all_sources,
     }
 
 
