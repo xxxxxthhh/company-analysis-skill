@@ -13,6 +13,7 @@ from typing import Any
 from .analysts.quality_gate import validate_report_payload
 from .connectors import fetch_earnings_calendar, fetch_news, fetch_sec_data, fetch_yahoo_data
 from .metric_packs import load_metric_pack
+from .peers import build_peer_table
 
 
 def collect_raw_data(ticker: str) -> dict[str, Any]:
@@ -73,12 +74,14 @@ def generate_report_bundle(ticker: str, industry: str, output_dir: Path, allow_p
     raw_data = collect_raw_data(ticker)
     pack = load_metric_pack(industry)
     analysis = pack.analyze(raw_data)
+    peer_table = build_peer_table(ticker)
 
     payload = {
         "ticker": ticker,
         "industry": industry,
         "raw_data": raw_data,
         "analysis": analysis,
+        "peer_table": peer_table,
         "generated_at": str(date.today()),
     }
 
@@ -106,22 +109,37 @@ def render_executive_summary(payload: dict[str, Any]) -> str:
     triggers = analysis.get("falsification_triggers", [])
     risks = analysis.get("bear_case", [])
     contradictions = analysis.get("contradictions", [])
-    return f"""# Executive Summary: {payload['ticker']}
+    key_metrics = analysis.get("key_metrics", [])
+    ticker = payload["ticker"]
+
+    # Key metrics snapshot
+    metrics_lines = []
+    for m in key_metrics[:10]:
+        val = m.get("value")
+        name = m.get("name", "")
+        if val is not None:
+            if isinstance(val, float):
+                val_str = f"{val:.3f}"
+            else:
+                val_str = str(val)
+            metrics_lines.append(f"- **{name}**: {val_str}")
+
+    return f"""# Executive Summary: {ticker}
 
 Generated: {payload['generated_at']}  
 Industry pack: {payload['industry']}
 
 ## Investment Thesis
 
-TODO: one-sentence thesis after live data collection.
+TODO: one-sentence thesis after deeper analysis.
 
 ## Key Metrics Snapshot
 
-TODO: fill from metric pack output.
+{chr(10).join(metrics_lines) or '- Data collection in progress.'}
 
 ## Key Contradictions / Alpha Hooks
 
-{_bullet_titles(contradictions) or '- TODO: find at least one contradiction or explain why none was found.'}
+{_bullet_titles(contradictions) or '- No contradictions detected with available data.'}
 
 ## Key Risks
 
@@ -134,13 +152,55 @@ TODO: fill from metric pack output.
 
 
 def render_full_report(payload: dict[str, Any]) -> str:
-    return f"""# Full Company Report: {payload['ticker']}
+    analysis = payload["analysis"]
+    peer_table = payload.get("peer_table", {})
+    ticker = payload["ticker"]
+
+    # Build peer table markdown
+    peer_md = _render_peer_table(peer_table)
+
+    # Build key metrics section
+    metrics_md = _render_key_metrics(analysis.get("key_metrics", []))
+
+    # Build contradictions section
+    contradictions_md = _render_contradictions(analysis.get("contradictions", []))
+
+    # Build bear case section
+    bear_md = _render_bear_case(analysis.get("bear_case", []))
+
+    # Build falsification triggers
+    triggers = analysis.get("falsification_triggers", [])
+    triggers_md = _bullets(triggers) or "- TODO"
+
+    return f"""# Full Company Report: {ticker}
 
 Generated: {payload['generated_at']}
 
-## Conclusion
+## Executive Summary
 
-TODO.
+See companion executive summary file.
+
+## Key Metrics
+
+{metrics_md}
+
+## Peer Comparison
+
+{peer_md}
+
+## Contradiction Hunting
+
+{contradictions_md}
+
+## Bear Case and Falsification Triggers
+
+### Bear Case
+
+{bear_md}
+
+### Falsification Triggers
+
+{triggers_md}
 
 ## So What / Alpha View
 
@@ -152,19 +212,15 @@ Every data section must answer:
 
 ## Company Overview
 
-TODO.
+TODO: populate from SEC company facts and news analysis.
 
 ## Industry and Competition
 
-TODO.
+TODO: add industry pack-specific analysis.
 
 ## Financial Analysis
 
-TODO.
-
-## Contradiction Hunting
-
-TODO.
+TODO: deep-dive into SEC filings and financial trends.
 
 ## Management Track Record
 
@@ -172,16 +228,134 @@ TODO: compare guidance, capital allocation, buybacks/M&A, and actual outcomes.
 
 ## Valuation
 
-TODO.
-
-## Bear Case and Falsification Triggers
-
-TODO.
+TODO: DCF / comparable / precedent analysis.
 
 ## Appendix: Sources and Raw Data
 
-See companion JSON payload.
+See companion JSON payload for full source provenance.
 """
+
+
+def _render_key_metrics(metrics: list[dict[str, Any]]) -> str:
+    if not metrics:
+        return "No metrics extracted from data sources."
+    lines = []
+    for m in metrics:
+        val = m.get("value")
+        name = m.get("name", "")
+        unit = m.get("unit", "")
+        period = m.get("period", "")
+        if val is not None:
+            if isinstance(val, float):
+                val_str = f"{val:.3f}"
+            else:
+                val_str = str(val)
+            lines.append(f"- **{name}** ({period}, {unit}): {val_str}")
+    return "\n".join(lines)
+
+
+def _render_peer_table(peer_table: dict[str, Any]) -> str:
+    subject = peer_table.get("subject", {})
+    peers = peer_table.get("peers", [])
+    rationale = peer_table.get("rationale", "")
+    missing = peer_table.get("missing_peers", [])
+
+    if not peers:
+        return "No peer mapping available. Add ticker to peers/manifest.json."
+
+    # Comparable fields
+    fields = [
+        ("ticker", "Ticker"),
+        ("market_cap", "Market Cap"),
+        ("trailing_pe", "Trailing P/E"),
+        ("forward_pe", "Forward P/E"),
+        ("price_to_sales", "P/S"),
+        ("price_to_book", "P/B"),
+        ("ev_ebitda", "EV/EBITDA"),
+        ("beta", "Beta"),
+        ("revenue_growth", "Rev Growth"),
+        ("profit_margins", "Profit Margin"),
+        ("operating_margins", "Op Margin"),
+        ("return_on_equity", "ROE"),
+        ("debt_to_equity", "D/E"),
+        ("current_ratio", "Current Ratio"),
+    ]
+
+    lines = []
+    if rationale:
+        lines.append(f"> **Rationale**: {rationale}")
+        lines.append("")
+
+    # Warning if peer data couldn't be fetched
+    if missing:
+        lines.append(f"> ⚠️ **Note**: Peer data for {', '.join(missing)} could not be fetched (Yahoo Finance API limit).")
+        lines.append("")
+
+    # Header
+    header = " | ".join(label for _, label in fields)
+    lines.append(f"| {header} |")
+    lines.append("|" + "|".join([" --- " for _ in fields]) + "|")
+
+    # Subject row (bold ticker)
+    row = []
+    for key, _ in fields:
+        v = subject.get(key)
+        if v is None:
+            row.append("N/A")
+        elif isinstance(v, float):
+            row.append(f"{v:.2f}")
+        else:
+            row.append(str(v))
+    # Bold the ticker cell
+    row[0] = f"**{row[0]}**"
+    lines.append(f"| {' | '.join(row)} |")
+
+    # Peer rows
+    for peer in peers:
+        row = []
+        for key, _ in fields:
+            v = peer.get(key)
+            if v is None:
+                row.append("N/A")
+            elif isinstance(v, float):
+                row.append(f"{v:.2f}")
+            else:
+                row.append(str(v))
+        lines.append(f"| {' | '.join(row)} |")
+
+    return "\n".join(lines)
+
+
+def _render_contradictions(contradictions: list[dict[str, Any]]) -> str:
+    if not contradictions:
+        return "No contradictions detected with available data."
+    lines = []
+    for c in contradictions:
+        title = c.get("title", "")
+        obs = c.get("observation", "")
+        so_what = c.get("so_what", "")
+        risk = c.get("risk_if_wrong", "")
+        confidence = c.get("confidence", "medium")
+        lines.append(f"### {title}")
+        lines.append(f"- **Observation**: {obs}")
+        lines.append(f"- **So What**: {so_what}")
+        lines.append(f"- **Risk If Wrong**: {risk}")
+        lines.append(f"- **Confidence**: {confidence}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _render_bear_case(bear_cases: list[dict[str, Any]]) -> str:
+    if not bear_cases:
+        return "TODO: populate bear case from contradiction analysis and qualitative risks."
+    lines = []
+    for b in bear_cases:
+        title = b.get("title", "")
+        obs = b.get("observation", "")
+        so_what = b.get("so_what", "")
+        risk = b.get("risk_if_wrong", "")
+        lines.append(f"- **{title}**: {obs} | So what: {so_what} | Risk if wrong: {risk}")
+    return "\n".join(lines)
 
 
 def _bullets(items: list[str]) -> str:
