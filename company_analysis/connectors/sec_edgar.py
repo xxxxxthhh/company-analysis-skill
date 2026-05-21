@@ -23,7 +23,7 @@ _COMPANYFACTS_API = "https://data.sec.gov/api/xbrl/companyfacts"
 _HEADERS = {
     "User-Agent": os.environ.get(
         "SEC_USER_AGENT",
-        "company-analysis-skill/0.1 contact@example.com (github.com/xxxxxthhh/company-analysis-skill)",
+        "Hermes company-analysis skill contact@example.com",
     ),
     "Accept": "application/json",
 }
