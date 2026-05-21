@@ -76,9 +76,17 @@ def generate_report_bundle(ticker: str, industry: str, output_dir: Path, allow_p
     analysis = pack.analyze(raw_data)
     peer_table = build_peer_table(ticker)
 
+    # Detect fallback
+    actual_pack = pack.__name__.split(".")[-1]
+    fallback_note = None
+    if actual_pack != industry.replace("-", "_"):
+        fallback_note = f"Requested '{industry}' pack not yet implemented; falling back to '{actual_pack}'"
+
     payload = {
         "ticker": ticker,
         "industry": industry,
+        "actual_pack": actual_pack,
+        "fallback_note": fallback_note,
         "raw_data": raw_data,
         "analysis": analysis,
         "peer_table": peer_table,
@@ -111,6 +119,7 @@ def render_executive_summary(payload: dict[str, Any]) -> str:
     contradictions = analysis.get("contradictions", [])
     key_metrics = analysis.get("key_metrics", [])
     ticker = payload["ticker"]
+    fallback = payload.get("fallback_note")
 
     # Key metrics snapshot
     metrics_lines = []
@@ -124,10 +133,12 @@ def render_executive_summary(payload: dict[str, Any]) -> str:
                 val_str = str(val)
             metrics_lines.append(f"- **{name}**: {val_str}")
 
+    fallback_banner = f"\n> ⚠️ {fallback}\n" if fallback else ""
+
     return f"""# Executive Summary: {ticker}
 
 Generated: {payload['generated_at']}  
-Industry pack: {payload['industry']}
+Industry pack: {payload['industry']}{fallback_banner}
 
 ## Investment Thesis
 
@@ -155,6 +166,7 @@ def render_full_report(payload: dict[str, Any]) -> str:
     analysis = payload["analysis"]
     peer_table = payload.get("peer_table", {})
     ticker = payload["ticker"]
+    fallback = payload.get("fallback_note")
 
     # Build peer table markdown
     peer_md = _render_peer_table(peer_table)
@@ -172,9 +184,12 @@ def render_full_report(payload: dict[str, Any]) -> str:
     triggers = analysis.get("falsification_triggers", [])
     triggers_md = _bullets(triggers) or "- TODO"
 
+    fallback_banner = f"\n> ⚠️ **Note**: {fallback}\n" if fallback else ""
+
     return f"""# Full Company Report: {ticker}
 
 Generated: {payload['generated_at']}
+Industry pack: {payload['industry']}{fallback_banner}
 
 ## Executive Summary
 
