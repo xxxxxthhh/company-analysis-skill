@@ -10,6 +10,7 @@ multiples.
 """
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from company_analysis.analysts.contradiction_hunter import find_contradictions
@@ -56,7 +57,7 @@ def _sec_history(facts: dict[str, Any], tag: str, periods: int = 2) -> list[dict
     if tag not in us_gaap:
         return []
     units = us_gaap[tag].get("units", {})
-    for unit_name, values in units.items():
+    for _unit_name, values in units.items():
         if not values:
             continue
         sorted_vals = sorted(values, key=lambda x: x.get("filed", ""), reverse=True)
@@ -64,66 +65,88 @@ def _sec_history(facts: dict[str, Any], tag: str, periods: int = 2) -> list[dict
     return []
 
 
+def _duration_days(entry: dict[str, Any]) -> int | None:
+    """Return statement duration in days when start/end are available."""
+    try:
+        start = date.fromisoformat(entry.get("start", ""))
+        end = date.fromisoformat(entry.get("end", ""))
+        return (end - start).days
+    except ValueError:
+        return None
+
+
+def _sec_annual_history(facts: dict[str, Any], tag: str, periods: int = 2) -> list[dict[str, Any]]:
+    """Get annual 10-K values, newest first, avoiding mixed QTD/YTD comparisons.
+
+    SEC companyfacts often includes multiple entries filed on the same date: QTD,
+    YTD, restated annuals, and instant values. For growth/margin calculations,
+    mixing a quarter with a year creates false signals. Prefer 10-K/FY entries
+    with roughly annual durations and dedupe by fiscal year/end date.
+    """
+    us_gaap = facts.get("facts", {}).get("us-gaap", {})
+    if tag not in us_gaap:
+        return []
+
+    candidates: list[dict[str, Any]] = []
+    for _unit_name, values in us_gaap[tag].get("units", {}).items():
+        for entry in values:
+            duration = _duration_days(entry)
+            if entry.get("form") == "10-K" and entry.get("fp") == "FY" and duration and 300 <= duration <= 400:
+                candidates.append(entry)
+
+    # Dedupe restatements / duplicate frames by fiscal year + period end. Keep
+    # the newest filing for each fiscal-year/end combination.
+    deduped: dict[tuple[Any, Any], dict[str, Any]] = {}
+    for entry in candidates:
+        key = (entry.get("fy"), entry.get("end"))
+        if key not in deduped or entry.get("filed", "") > deduped[key].get("filed", ""):
+            deduped[key] = entry
+
+    sorted_vals = sorted(deduped.values(), key=lambda x: (x.get("end", ""), x.get("filed", "")), reverse=True)
+    return sorted_vals[:periods]
+
+
 # ── Metric extractors ───────────────────────────────────────────────────────
 
 def _extract_sec_income_metrics(sec_facts: dict[str, Any]) -> dict[str, Any]:
-    """Extract income statement metrics from SEC XBRL."""
-    # Try modern revenue tag first, fallback to legacy
-    revenue = _sec_latest(sec_facts, "RevenueFromContractWithCustomerExcludingAssessedTax")
-    if revenue is None:
-        revenue = _sec_latest(sec_facts, "Revenues")
+    """Extract annual income statement metrics from SEC XBRL.
 
-    gross_profit = _sec_latest(sec_facts, "GrossProfit")
-    operating_income = _sec_latest(sec_facts, "OperatingIncomeLoss")
-    net_income = _sec_latest(sec_facts, "NetIncomeLoss")
-
-    # Get prior period for growth calculation
-    rev_history = _sec_history(sec_facts, "RevenueFromContractWithCustomerExcludingAssessedTax", 2)
+    Use annual 10-K values to avoid false comparisons between QTD/YTD and FY
+    periods. Names keep the original public interface, but period metadata below
+    marks them as annual.
+    """
+    rev_history = _sec_annual_history(sec_facts, "RevenueFromContractWithCustomerExcludingAssessedTax", 2)
     if len(rev_history) < 2:
-        rev_history = _sec_history(sec_facts, "Revenues", 2)
+        rev_history = _sec_annual_history(sec_facts, "Revenues", 2)
+    gp_history = _sec_annual_history(sec_facts, "GrossProfit", 2)
+    oi_history = _sec_annual_history(sec_facts, "OperatingIncomeLoss", 2)
+
+    revenue = rev_history[0].get("val") if rev_history else None
+    prior_revenue = rev_history[1].get("val") if len(rev_history) > 1 else None
+    gross_profit = gp_history[0].get("val") if gp_history else None
+    prior_gross_profit = gp_history[1].get("val") if len(gp_history) > 1 else None
+    operating_income = oi_history[0].get("val") if oi_history else None
+    prior_operating_income = oi_history[1].get("val") if len(oi_history) > 1 else None
 
     revenue_growth = None
-    if len(rev_history) >= 2:
-        current = rev_history[0].get("val")
-        prior = rev_history[1].get("val")
-        if current and prior and prior != 0:
-            # Annualize if quarterly; rough approximation for single-quarter comparison
-            revenue_growth = (current - prior) / abs(prior)
+    if revenue and prior_revenue and prior_revenue != 0:
+        revenue_growth = (revenue - prior_revenue) / abs(prior_revenue)
 
-    gross_margin = None
-    operating_margin = None
-    if revenue and revenue != 0:
-        if gross_profit:
-            gross_margin = gross_profit / revenue
-        if operating_income:
-            operating_margin = operating_income / revenue
-
-    # Prior margins
-    gp_history = _sec_history(sec_facts, "GrossProfit", 2)
-    oi_history = _sec_history(sec_facts, "OperatingIncomeLoss", 2)
-    rev_history_prior = _sec_history(sec_facts, "RevenueFromContractWithCustomerExcludingAssessedTax", 2)
-    if len(rev_history_prior) < 2:
-        rev_history_prior = _sec_history(sec_facts, "Revenues", 2)
+    gross_margin = gross_profit / revenue if revenue and gross_profit is not None else None
+    operating_margin = operating_income / revenue if revenue and operating_income is not None else None
 
     gross_margin_prior = None
+    if prior_revenue and prior_gross_profit is not None:
+        gross_margin_prior = prior_gross_profit / prior_revenue
     operating_margin_prior = None
-    if len(gp_history) >= 2 and len(rev_history_prior) >= 2:
-        prior_rev = rev_history_prior[1].get("val")
-        prior_gp = gp_history[1].get("val")
-        if prior_rev and prior_rev != 0 and prior_gp:
-            gross_margin_prior = prior_gp / prior_rev
-
-    if len(oi_history) >= 2 and len(rev_history_prior) >= 2:
-        prior_rev = rev_history_prior[1].get("val")
-        prior_oi = oi_history[1].get("val")
-        if prior_rev and prior_rev != 0 and prior_oi:
-            operating_margin_prior = prior_oi / prior_rev
+    if prior_revenue and prior_operating_income is not None:
+        operating_margin_prior = prior_operating_income / prior_revenue
 
     gross_margin_change = None
     operating_margin_change = None
-    if gross_margin and gross_margin_prior is not None:
+    if gross_margin is not None and gross_margin_prior is not None:
         gross_margin_change = gross_margin - gross_margin_prior
-    if operating_margin and operating_margin_prior is not None:
+    if operating_margin is not None and operating_margin_prior is not None:
         operating_margin_change = operating_margin - operating_margin_prior
 
     return {
@@ -136,18 +159,14 @@ def _extract_sec_income_metrics(sec_facts: dict[str, Any]) -> dict[str, Any]:
 
 
 def _extract_sec_cashflow_metrics(sec_facts: dict[str, Any]) -> dict[str, Any]:
-    """Extract cash flow metrics from SEC XBRL."""
-    ocf = _sec_latest(sec_facts, "NetCashProvidedByUsedInOperatingActivities")
-    capex = _sec_latest(sec_facts, "PaymentsToAcquirePropertyPlantAndEquipment")
-    fcf = None
-    if ocf is not None and capex is not None:
-        fcf = ocf - abs(capex)  # capex in SEC is usually positive outflow
+    """Extract annual cash flow metrics from SEC XBRL."""
+    ocf_history = _sec_annual_history(sec_facts, "NetCashProvidedByUsedInOperatingActivities", 2)
+    capex_history = _sec_annual_history(sec_facts, "PaymentsToAcquirePropertyPlantAndEquipment", 2)
+    sbc_history = _sec_annual_history(sec_facts, "ShareBasedCompensation", 1)
 
-    sbc = _sec_latest(sec_facts, "ShareBasedCompensation")
-
-    # Prior period
-    ocf_history = _sec_history(sec_facts, "NetCashProvidedByUsedInOperatingActivities", 2)
-    capex_history = _sec_history(sec_facts, "PaymentsToAcquirePropertyPlantAndEquipment", 2)
+    ocf = ocf_history[0].get("val") if ocf_history else None
+    capex = capex_history[0].get("val") if capex_history else None
+    fcf = ocf - abs(capex) if ocf is not None and capex is not None else None
 
     fcf_prior = None
     if len(ocf_history) >= 2 and len(capex_history) >= 2:
@@ -156,18 +175,15 @@ def _extract_sec_cashflow_metrics(sec_facts: dict[str, Any]) -> dict[str, Any]:
         if ocf_prior is not None and capex_prior is not None:
             fcf_prior = ocf_prior - abs(capex_prior)
 
-    fcf_margin = None
-    fcf_margin_prior = None
-    fcf_margin_change = None
-    sbc_as_revenue = None
+    sbc = sbc_history[0].get("val") if sbc_history else None
 
     return {
         "fcf_ttm": fcf,
         "fcf_prior": fcf_prior,
-        "fcf_margin_ttm": fcf_margin,
-        "fcf_margin_change_yoy": fcf_margin_change,
+        "fcf_margin_ttm": None,
+        "fcf_margin_change_yoy": None,
         "sbc_ttm": sbc,
-        "sbc_as_revenue": sbc_as_revenue,
+        "sbc_as_revenue": None,
     }
 
 
@@ -261,12 +277,15 @@ def analyze(raw_data: dict[str, Any]) -> dict[str, Any]:
 
     summary_metrics = _extract_yahoo_summary_metrics(summary)
 
-    # Cross-link: need revenue for FCF margin and SBC %
+    # Cross-link: need annual revenue for FCF margin and SBC %.
     revenue = None
+    prior_revenue = None
     if sec_facts:
-        revenue = _sec_latest(sec_facts, "RevenueFromContractWithCustomerExcludingAssessedTax")
-        if revenue is None:
-            revenue = _sec_latest(sec_facts, "Revenues")
+        rev_history = _sec_annual_history(sec_facts, "RevenueFromContractWithCustomerExcludingAssessedTax", 2)
+        if len(rev_history) < 2:
+            rev_history = _sec_annual_history(sec_facts, "Revenues", 2)
+        revenue = rev_history[0].get("val") if rev_history else None
+        prior_revenue = rev_history[1].get("val") if len(rev_history) > 1 else None
     if revenue is None:
         income_history = market.get("income_statement", {}).get("incomeStatementHistory", [])
         if income_history:
@@ -276,8 +295,8 @@ def analyze(raw_data: dict[str, Any]) -> dict[str, Any]:
     if revenue and revenue != 0:
         if cash_metrics.get("fcf_ttm") is not None:
             cash_metrics["fcf_margin_ttm"] = cash_metrics["fcf_ttm"] / revenue
-        if cash_metrics.get("fcf_prior") is not None:
-            fcf_margin_prior = cash_metrics["fcf_prior"] / revenue
+        if cash_metrics.get("fcf_prior") is not None and prior_revenue:
+            fcf_margin_prior = cash_metrics["fcf_prior"] / prior_revenue
             if cash_metrics.get("fcf_margin_ttm") is not None:
                 cash_metrics["fcf_margin_change_yoy"] = cash_metrics["fcf_margin_ttm"] - fcf_margin_prior
         if cash_metrics.get("sbc_ttm") is not None:
@@ -292,20 +311,23 @@ def analyze(raw_data: dict[str, Any]) -> dict[str, Any]:
 
     contradictions = find_contradictions(normalized_metrics)
 
-    # Build key_metrics list for report rendering
+    # Build key_metrics list for report rendering.
+    ratio_metrics = {
+        "pe_trailing", "pe_forward", "price_to_sales", "price_to_book",
+        "ev_to_ebitda", "beta", "debt_to_equity", "sbc_as_revenue",
+    }
     key_metrics = []
     for name, value in normalized_metrics.items():
         if value is not None:
+            is_ratio = "margin" in name or "growth" in name or "ratio" in name or name in ratio_metrics
             key_metrics.append({
                 "name": name,
                 "value": value,
-                "period": "TTM",
-                "unit": "ratio" if "margin" in name or "growth" in name or "ratio" in name or name in (
-                    "pe_trailing", "pe_forward", "price_to_sales", "price_to_book", "ev_to_ebitda", "beta", "debt_to_equity"
-                ) else "USD",
+                "period": "Annual / latest filing",
+                "unit": "ratio" if is_ratio else "USD",
                 "source": {"source_type": "SEC EDGAR / Yahoo Finance", "url": f"https://finance.yahoo.com/quote/{raw_data.get('ticker')}"},
-                "so_what": "",
-                "risk_if_wrong": "",
+                "so_what": "Use this metric to test business quality, cash conversion, balance-sheet risk, or market expectations.",
+                "risk_if_wrong": "If the metric is distorted by period mixing, restatement, one-off working capital, or missing data, the derived thesis may be unreliable.",
             })
 
     # Generate bear case and falsification triggers

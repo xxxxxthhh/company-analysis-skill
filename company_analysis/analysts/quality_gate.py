@@ -23,7 +23,7 @@ def validate_report_payload(payload: dict[str, Any], allow_placeholder: bool = F
         errors.append("no contradictions / alpha hooks found")
 
     # Each insight-like object should have So What and risk-if-wrong fields.
-    for section in ("insights", "contradictions", "bear_case"):
+    for section in ("insights", "contradictions", "bear_case", "key_metrics"):
         for idx, item in enumerate(analysis.get(section) or []):
             if not item.get("so_what"):
                 errors.append(f"{section}[{idx}] missing so_what")
