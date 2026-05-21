@@ -35,36 +35,6 @@ def _get(data: dict[str, Any], *path: str) -> Any:
 
 # ── SEC XBRL helpers ────────────────────────────────────────────────────────
 
-def _sec_latest(facts: dict[str, Any], tag: str) -> float | None:
-    """Get the most recent value for a US-GAAP XBRL tag from SEC company facts."""
-    us_gaap = facts.get("facts", {}).get("us-gaap", {})
-    if tag not in us_gaap:
-        return None
-    units = us_gaap[tag].get("units", {})
-    for unit_name, values in units.items():
-        if not values:
-            continue
-        # Sort by filed date descending, take latest
-        sorted_vals = sorted(values, key=lambda x: x.get("filed", ""), reverse=True)
-        latest = sorted_vals[0]
-        return latest.get("val")
-    return None
-
-
-def _sec_history(facts: dict[str, Any], tag: str, periods: int = 2) -> list[dict[str, Any]]:
-    """Get recent history for a US-GAAP tag, newest first."""
-    us_gaap = facts.get("facts", {}).get("us-gaap", {})
-    if tag not in us_gaap:
-        return []
-    units = us_gaap[tag].get("units", {})
-    for _unit_name, values in units.items():
-        if not values:
-            continue
-        sorted_vals = sorted(values, key=lambda x: x.get("filed", ""), reverse=True)
-        return sorted_vals[:periods]
-    return []
-
-
 def _duration_days(entry: dict[str, Any]) -> int | None:
     """Return statement duration in days when start/end are available."""
     try:
@@ -106,27 +76,81 @@ def _sec_annual_history(facts: dict[str, Any], tag: str, periods: int = 2) -> li
     return sorted_vals[:periods]
 
 
+def _sec_latest(facts: dict[str, Any], tag: str) -> float | None:
+    """Get the most recent value for a US-GAAP XBRL tag from SEC company facts."""
+    us_gaap = facts.get("facts", {}).get("us-gaap", {})
+    if tag not in us_gaap:
+        return None
+    units = us_gaap[tag].get("units", {})
+    for unit_name, values in units.items():
+        if not values:
+            continue
+        # Sort by filed date descending, take latest
+        sorted_vals = sorted(values, key=lambda x: x.get("filed", ""), reverse=True)
+        latest = sorted_vals[0]
+        return latest.get("val")
+    return None
+
+
+# ── Fiscal-year aligned metric extraction ──────────────────────────────────
+
+def _pick_best_revenue_history(sec_facts: dict[str, Any]) -> list[dict[str, Any]]:
+    """Try multiple revenue tags and return the one with the most recent data."""
+    candidates = [
+        ("RevenueFromContractWithCustomerExcludingAssessedTax", _sec_annual_history(sec_facts, "RevenueFromContractWithCustomerExcludingAssessedTax", 2)),
+        ("Revenues", _sec_annual_history(sec_facts, "Revenues", 2)),
+        ("SalesRevenueNet", _sec_annual_history(sec_facts, "SalesRevenueNet", 2)),
+    ]
+    # Filter out empty results
+    candidates = [(name, hist) for name, hist in candidates if hist]
+    if not candidates:
+        return []
+    # Pick the one whose latest entry has the most recent end date
+    best = max(candidates, key=lambda item: item[1][0].get("end", ""))
+    return best[1]
+
+
+def _value_for_fy(history: list[dict[str, Any]], fy: int | None, end_date: str | None) -> float | None:
+    """Pick the entry matching a specific fiscal year and end date."""
+    for entry in history:
+        if entry.get("fy") == fy and entry.get("end") == end_date:
+            return entry.get("val")
+    # Fallback: fuzzy match by fy only (some tags may have slightly different end dates)
+    for entry in history:
+        if entry.get("fy") == fy:
+            return entry.get("val")
+    return None
+
+
 # ── Metric extractors ───────────────────────────────────────────────────────
 
 def _extract_sec_income_metrics(sec_facts: dict[str, Any]) -> dict[str, Any]:
-    """Extract annual income statement metrics from SEC XBRL.
+    """Extract annual income statement metrics from SEC XBRL with fiscal-year alignment.
 
-    Use annual 10-K values to avoid false comparisons between QTD/YTD and FY
-    periods. Names keep the original public interface, but period metadata below
-    marks them as annual.
+    Revenue, gross profit, and operating income must come from the same
+    fiscal year(s). If they do not align, margin calculations are garbage.
     """
-    rev_history = _sec_annual_history(sec_facts, "RevenueFromContractWithCustomerExcludingAssessedTax", 2)
-    if len(rev_history) < 2:
-        rev_history = _sec_annual_history(sec_facts, "Revenues", 2)
+    rev_history = _pick_best_revenue_history(sec_facts)
+    if not rev_history:
+        return {}
+
+    # Determine the fiscal years to use
+    current_fy = rev_history[0].get("fy")
+    current_end = rev_history[0].get("end")
+    prior_fy = rev_history[1].get("fy") if len(rev_history) > 1 else None
+    prior_end = rev_history[1].get("end") if len(rev_history) > 1 else None
+
+    revenue = rev_history[0].get("val")
+    prior_revenue = rev_history[1].get("val") if len(rev_history) > 1 else None
+
+    # Fetch other tags and align to the same fiscal years
     gp_history = _sec_annual_history(sec_facts, "GrossProfit", 2)
     oi_history = _sec_annual_history(sec_facts, "OperatingIncomeLoss", 2)
 
-    revenue = rev_history[0].get("val") if rev_history else None
-    prior_revenue = rev_history[1].get("val") if len(rev_history) > 1 else None
-    gross_profit = gp_history[0].get("val") if gp_history else None
-    prior_gross_profit = gp_history[1].get("val") if len(gp_history) > 1 else None
-    operating_income = oi_history[0].get("val") if oi_history else None
-    prior_operating_income = oi_history[1].get("val") if len(oi_history) > 1 else None
+    gross_profit = _value_for_fy(gp_history, current_fy, current_end) if gp_history else None
+    prior_gross_profit = _value_for_fy(gp_history, prior_fy, prior_end) if prior_fy and gp_history else None
+    operating_income = _value_for_fy(oi_history, current_fy, current_end) if oi_history else None
+    prior_operating_income = _value_for_fy(oi_history, prior_fy, prior_end) if prior_fy and oi_history else None
 
     revenue_growth = None
     if revenue and prior_revenue and prior_revenue != 0:
@@ -159,23 +183,32 @@ def _extract_sec_income_metrics(sec_facts: dict[str, Any]) -> dict[str, Any]:
 
 
 def _extract_sec_cashflow_metrics(sec_facts: dict[str, Any]) -> dict[str, Any]:
-    """Extract annual cash flow metrics from SEC XBRL."""
+    """Extract annual cash flow metrics from SEC XBRL with fiscal-year alignment."""
+    rev_history = _pick_best_revenue_history(sec_facts)
+    current_fy = rev_history[0].get("fy") if rev_history else None
+    current_end = rev_history[0].get("end") if rev_history else None
+    prior_fy = rev_history[1].get("fy") if len(rev_history) > 1 else None
+    prior_end = rev_history[1].get("end") if len(rev_history) > 1 else None
+
     ocf_history = _sec_annual_history(sec_facts, "NetCashProvidedByUsedInOperatingActivities", 2)
     capex_history = _sec_annual_history(sec_facts, "PaymentsToAcquirePropertyPlantAndEquipment", 2)
+    # Fallback capex tag
+    if not capex_history:
+        capex_history = _sec_annual_history(sec_facts, "CapitalExpendituresIncurredButNotYetPaid", 2)
     sbc_history = _sec_annual_history(sec_facts, "ShareBasedCompensation", 1)
 
-    ocf = ocf_history[0].get("val") if ocf_history else None
-    capex = capex_history[0].get("val") if capex_history else None
+    ocf = _value_for_fy(ocf_history, current_fy, current_end) if ocf_history else None
+    capex = _value_for_fy(capex_history, current_fy, current_end) if capex_history else None
     fcf = ocf - abs(capex) if ocf is not None and capex is not None else None
 
     fcf_prior = None
-    if len(ocf_history) >= 2 and len(capex_history) >= 2:
-        ocf_prior = ocf_history[1].get("val")
-        capex_prior = capex_history[1].get("val")
+    if prior_fy:
+        ocf_prior = _value_for_fy(ocf_history, prior_fy, prior_end) if ocf_history else None
+        capex_prior = _value_for_fy(capex_history, prior_fy, prior_end) if capex_history else None
         if ocf_prior is not None and capex_prior is not None:
             fcf_prior = ocf_prior - abs(capex_prior)
 
-    sbc = sbc_history[0].get("val") if sbc_history else None
+    sbc = _value_for_fy(sbc_history, current_fy, current_end) if sbc_history else None
 
     return {
         "fcf_ttm": fcf,
@@ -231,7 +264,6 @@ def _extract_yahoo_income_metrics(income_stmt: dict[str, Any]) -> dict[str, Any]
     revenue_growth = None
     if total_revenue_ttm and total_revenue_prior and total_revenue_prior != 0:
         revenue_growth = (total_revenue_ttm - total_revenue_prior) / abs(total_revenue_prior)
-    # ... (truncated for brevity, not used when SEC data available)
     return {"revenue_growth_yoy": revenue_growth}
 
 
@@ -272,8 +304,8 @@ def analyze(raw_data: dict[str, Any]) -> dict[str, Any]:
         cash = market.get("cash_flow", {})
         balance = market.get("balance_sheet", {})
         income_metrics = _extract_yahoo_income_metrics(income_stmt)
-        cash_metrics = {}  # Yahoo cash flow extraction omitted for brevity
-        balance_metrics = {}  # Yahoo balance extraction omitted for brevity
+        cash_metrics = {}
+        balance_metrics = {}
 
     summary_metrics = _extract_yahoo_summary_metrics(summary)
 
@@ -281,11 +313,10 @@ def analyze(raw_data: dict[str, Any]) -> dict[str, Any]:
     revenue = None
     prior_revenue = None
     if sec_facts:
-        rev_history = _sec_annual_history(sec_facts, "RevenueFromContractWithCustomerExcludingAssessedTax", 2)
-        if len(rev_history) < 2:
-            rev_history = _sec_annual_history(sec_facts, "Revenues", 2)
-        revenue = rev_history[0].get("val") if rev_history else None
-        prior_revenue = rev_history[1].get("val") if len(rev_history) > 1 else None
+        rev_history = _pick_best_revenue_history(sec_facts)
+        if rev_history:
+            revenue = rev_history[0].get("val")
+            prior_revenue = rev_history[1].get("val") if len(rev_history) > 1 else None
     if revenue is None:
         income_history = market.get("income_statement", {}).get("incomeStatementHistory", [])
         if income_history:
