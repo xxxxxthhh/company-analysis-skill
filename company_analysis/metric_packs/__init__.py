@@ -22,7 +22,13 @@ ALIASES = {
     "semiconductors": "semiconductors",
 }
 
+# Packs with real SEC-data extraction. All others fall back to generic.
+IMPLEMENTED = {"generic"}
+
 
 def load_metric_pack(name: str):
     module_name = ALIASES.get(name, name).replace("-", "_")
+    if module_name not in IMPLEMENTED:
+        # Fallback to generic; caller can inspect __name__ to report it.
+        module_name = "generic"
     return importlib.import_module(f"company_analysis.metric_packs.{module_name}")
