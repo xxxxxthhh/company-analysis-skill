@@ -85,14 +85,7 @@ rules:
     action_if_fail: reject
     rationale: "敷衍的熊市分析等同于没有分析。熊市论点必须与牛市论点同等深度。"
 
-  - id: no_differentiated_view
-    name: "无差异化观点 / No Differentiated View"
-    category: l1_hard_gate
-    severity: critical
-    industry: null
-    condition: "报告未声明当前市场共识，也未说明本报告的差异点"
-    action_if_fail: flag
-    rationale: "没有差异化观点的报告只是一份摘要，不产生alpha。此门不直接拒绝，但必须标注为'不完整'。"
+
 
   - id: hidden_valuation_assumptions
     name: "估值假设不透明 / Hidden Valuation Assumptions"

@@ -127,7 +127,7 @@ Extract and assess:
 - Debt, cash, leases, maturities
 - Share count, dilution, buybacks/dividends
 - Customer concentration, backlog/RPO
-- Industry-specific KPIs (see `references/industry-frameworks.md`)
+- Industry-specific KPIs (see `references/methodology/industry-frameworks.md` and `rules/l2-industry-checks.yaml`)
 
 Mark unavailable metrics as `unknown`; do NOT invent them.
 
@@ -266,7 +266,7 @@ These are **mandatory**. Command-tone enforcement:
 - ❌ Facts, estimates, assumptions, judgments not separated → REJECT.
 - ❌ Bull/base/bear or scenario thinking absent → REJECT.
 - ❌ Bear case is weak/token (only 1-2 sentences without data) → REJECT.
-- ❌ No differentiated view vs market consensus → downgrade, flag as incomplete.
+
 
 ### L2: Industry-Specific Checks
 

@@ -23,9 +23,11 @@ Systematic framework for producing **objective, dialectical, and comprehensive**
 **Before starting research, clarify with user:**
 
 1. **Research Depth**
-   - Quick overview (30 min): Key metrics + brief thesis
-   - Standard analysis (2 hr): Full framework below
-   - Deep dive (4+ hr): Include channel checks, expert calls synthesis
+   - **Pulse Check** (~30 lines / 2K tokens): One-sentence thesis, key numbers, 2-line bull/bear, next catalyst. Quick orientation.
+   - **Research Report** (200-300 lines / 8K tokens): Full 10-section report with sources and quality gates. Standard company analysis.
+   - **Investment Memo** (500+ lines / 15K+ tokens): Full report + detailed sensitivity analysis + full peer comps table + extended contradiction hunting. Investment decision support.
+   
+   See SKILL.md § "Report Depth Tiers" for trigger words and default selection.
 
 2. **Focus Area**
    - General investment thesis

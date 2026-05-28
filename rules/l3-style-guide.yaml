@@ -93,3 +93,12 @@ rules:
     condition: "报告末尾的'下一检查点'是具体的、可验证的（如'关注2026Q2财报中的ARR增速是否>20%'），而非模糊建议（如'持续关注公司发展'）"
     action_if_fail: warn
     rationale: "模糊的下一步建议等于没有建议。老大需要可执行、可验证的监控信号。"
+
+  - id: style_no_differentiated_view
+    name: "无差异化观点 / No Differentiated View"
+    category: l3_style
+    severity: warning
+    industry: null
+    condition: "报告未声明当前市场共识，也未说明本报告的差异点"
+    action_if_fail: warn
+    rationale: "没有差异化观点的报告只是一份摘要，不产生alpha。从L1移至L3是因为此规则不是硬阻断，而是质量降级。"
