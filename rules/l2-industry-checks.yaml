@@ -1,0 +1,174 @@
+# L2 Industry-Specific Quality Checks
+# These are mandatory industry-specific checks.
+# Load the relevant rules based on company industry classification.
+# Failures: flag in the report, do not block publication (L1 blocks, L2 flags).
+#
+# Schema:
+#   id: unique identifier
+#   name: display name
+#   category: l2_industry
+#   severity: warning | info
+#   industry: generic | saas | fintech | semiconductor | bank | ecommerce
+#   condition: human-readable condition to check
+#   action_if_fail: flag | warn
+#   rationale: why this matters
+
+rules:
+  # ── GENERIC (all industries) ──
+  - id: generic_customer_concentration
+    name: "客户集中度风险 / Customer Concentration Risk"
+    category: l2_industry
+    severity: warning
+    industry: generic
+    condition: "单一客户占比 > 20% 营收"
+    action_if_fail: flag
+    rationale: "高客户集中度意味着失去一个客户将显著影响业务。报告中必须量化此风险。"
+
+  - id: generic_revenue_quality
+    name: "收入质量检查 / Revenue Quality Check"
+    category: l2_industry
+    severity: warning
+    industry: generic
+    condition: "经营现金流持续低于净利润，或应收账款增速 > 营收增速"
+    action_if_fail: flag
+    rationale: "收入质量差通常预示应计项目异常或激进的收入确认。需深入检查。"
+
+  - id: generic_sbc_dilution
+    name: "股权激励稀释 / SBC Dilution"
+    category: l2_industry
+    severity: warning
+    industry: generic
+    condition: "SBC占营收比例 > 10%"
+    action_if_fail: flag
+    rationale: "高SBC意味着每股经济价值被持续稀释。必须在估值中考虑稀释后股数。"
+
+  - id: generic_acquisition_risk
+    name: "并购相关风险 / Acquisition Risk"
+    category: l2_industry
+    severity: warning
+    industry: generic
+    condition: "商誉 > 总资产的30%，或近期有大额并购"
+    action_if_fail: flag
+    rationale: "高商誉意味着过往并购溢价大，后续减值风险高。需检查并购标的表现。"
+
+  # ── SaaS / Cloud ──
+  - id: saas_rule_of_40
+    name: "Rule of 40 检查 / Rule of 40 Check"
+    category: l2_industry
+    severity: warning
+    industry: saas
+    condition: "Rule of 40 = 收入增速% + FCF利润率% < 20"
+    action_if_fail: flag
+    rationale: "Rule of 40 < 20 意味着增长效率偏低。需区分是投资期还是结构性低效。"
+
+  - id: saas_nrr_check
+    name: "净留存率检查 / NRR Check"
+    category: l2_industry
+    severity: warning
+    industry: saas
+    condition: "NRR < 100%（如果可获取）"
+    action_if_fail: flag
+    rationale: "NRR < 100% 意味着现有客户在缩减支出，增长完全依赖新客获取。这是一个严重的质量信号。"
+
+  - id: saas_cac_payback
+    name: "CAC回收期检查 / CAC Payback Check"
+    category: l2_industry
+    severity: info
+    industry: saas
+    condition: "CAC回收期 > 24个月（如果可获取）"
+    action_if_fail: warn
+    rationale: "过长的回收期意味着增长效率低，对融资环境敏感。但数据可能不可得（❌），标注即可。"
+
+  - id: saas_rpo_trend
+    name: "剩余履约义务趋势 / RPO Trend"
+    category: l2_industry
+    severity: info
+    industry: saas
+    condition: "RPO增速持续低于收入增速"
+    action_if_fail: warn
+    rationale: "RPO是新收入的前瞻指标。RPO减速意味着未来增长可能放缓。"
+
+  # ── Fintech / Crypto ──
+  - id: fintech_regulatory_exposure
+    name: "监管风险敞口 / Regulatory Exposure"
+    category: l2_industry
+    severity: warning
+    industry: fintech
+    condition: "业务涉及多司法管辖区监管，或存在未决执法行动"
+    action_if_fail: flag
+    rationale: "金融科技公司的最大风险之一是监管变化。必须在报告中明确列出各司法管辖区的监管状态。"
+
+  - id: fintech_take_rate_trend
+    name: "抽成率趋势 / Take Rate Trend"
+    category: l2_industry
+    severity: warning
+    industry: fintech
+    condition: "Take rate连续下降超过2个季度"
+    action_if_fail: flag
+    rationale: "Take rate下降可能意味着竞争加剧或定价权减弱。需分析是结构性还是暂时性。"
+
+  # ── Semiconductors ──
+  - id: semi_inventory_cycle
+    name: "库存周期检查 / Inventory Cycle Check"
+    category: l2_industry
+    severity: warning
+    industry: semiconductor
+    condition: "库存增速 > 营收增速，或库存天数连续上升"
+    action_if_fail: flag
+    rationale: "半导体行业库存周期是估值的重要驱动因素。库存积累可能预示下游需求减弱。"
+
+  - id: semi_customer_concentration
+    name: "客户集中度 / Customer Concentration"
+    category: l2_industry
+    severity: warning
+    industry: semiconductor
+    condition: "最大客户 > 30% 营收"
+    action_if_fail: flag
+    rationale: "半导体行业常见大客户依赖（如对Apple/NVIDIA的依赖）。需量化集中度并评估替代风险。"
+
+  - id: semi_gross_margin_cycle
+    name: "毛利率周期 / Gross Margin Cycle"
+    category: l2_industry
+    severity: warning
+    industry: semiconductor
+    condition: "毛利率处于历史高位，且行业产能利用率开始下降"
+    action_if_fail: flag
+    rationale: "半导体毛利率高度顺周期。高位毛利率 + 产能利用率下降可能是周期见顶信号。"
+
+  # ── Banks ──
+  - id: bank_capital_adequacy
+    name: "资本充足率 / Capital Adequacy"
+    category: l2_industry
+    severity: warning
+    industry: bank
+    condition: "CET1比率低于监管最低要求 + 缓冲（如适用）"
+    action_if_fail: flag
+    rationale: "资本不足的银行在压力情景下可能面临分红限制或被迫融资。"
+
+  - id: bank_credit_quality
+    name: "信贷质量 / Credit Quality"
+    category: l2_industry
+    severity: warning
+    industry: bank
+    condition: "NPL比率趋势上升，或拨备覆盖率下降"
+    action_if_fail: flag
+    rationale: "信贷质量恶化是银行盈利能力的先行指标。需分析贷款组合构成和宏观压力情景。"
+
+  # ── E-commerce / Consumer ──
+  - id: ecommerce_gmv_growth
+    name: "GMV增长质量 / GMV Growth Quality"
+    category: l2_industry
+    severity: warning
+    industry: ecommerce
+    condition: "GMV增速 < 行业平均，或Take rate趋势下降"
+    action_if_fail: flag
+    rationale: "电商平台的核心价值在于交易量和货币化能力。两者同时走弱是重大警告信号。"
+
+  - id: ecommerce_fulfillment_cost
+    name: "履约成本趋势 / Fulfillment Cost Trend"
+    category: l2_industry
+    severity: info
+    industry: ecommerce
+    condition: "单位履约成本连续上升"
+    action_if_fail: warn
+    rationale: "履约成本上升会侵蚀利润率。需检查是投入成本通胀还是运营效率下降。"

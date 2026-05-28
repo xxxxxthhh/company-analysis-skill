@@ -1,0 +1,104 @@
+# L1 Hard Publication Gates
+# These are MANDATORY checks. ANY failure → REJECT the report.
+# LLM must verify ALL gates before publishing. Command-tone enforcement.
+#
+# Schema:
+#   id: unique identifier
+#   name: display name (Chinese + English)
+#   category: l1_hard_gate
+#   severity: critical (all L1 gates are critical)
+#   industry: null (all L1 gates apply universally)
+#   condition: human-readable condition to check
+#   action_if_fail: reject  (all L1 failures reject)
+#   rationale: why this gate matters
+
+rules:
+  - id: missing_bear_case
+    name: "缺少熊市分析 / Missing Bear Case"
+    category: l1_hard_gate
+    severity: critical
+    industry: null
+    condition: "报告中没有独立的熊市分析章节，或熊市分析少于3个具体论点"
+    action_if_fail: reject
+    rationale: "没有熊市分析的报告是片面的，不具备决策参考价值。必须包含至少3个有数据支撑的熊市论点。"
+
+  - id: insufficient_falsification_triggers
+    name: "证伪触发条件不足 / Insufficient Falsification Triggers"
+    category: l1_hard_gate
+    severity: critical
+    industry: null
+    condition: "报告中的thesis-breaking events少于2个"
+    action_if_fail: reject
+    rationale: "每个投资论点都需要明确'什么情况下我是错的'。少于2个证伪条件意味着分析不够严谨。"
+
+  - id: unprovenanced_key_numbers
+    name: "关键数字无来源 / Unprovenanced Key Numbers"
+    category: l1_hard_gate
+    severity: critical
+    industry: null
+    condition: "收入、利润率、FCF、估值倍数等关键数字缺少来源引用（URL + 文档日期 + 访问日期）"
+    action_if_fail: reject
+    rationale: "没有来源的数字不可信。所有关键财务数据必须标注SEC申报或Yahoo Finance来源。"
+
+  - id: unresolved_company_identity
+    name: "公司身份未确认 / Unresolved Company Identity"
+    category: l1_hard_gate
+    severity: critical
+    industry: null
+    condition: "报告中未确认公司法定名称、股票代码、交易所、CIK（如适用）"
+    action_if_fail: reject
+    rationale: "分析错误公司的报告比没有报告更危险。"
+
+  - id: missing_filing_period
+    name: "缺少财报区间声明 / Missing Filing Period"
+    category: l1_hard_gate
+    severity: critical
+    industry: null
+    condition: "报告未声明使用的最新财报期间和价格/市场数据日期"
+    action_if_fail: reject
+    rationale: "读者需要知道报告基于什么时间点的数据。过时数据比没有数据更危险。"
+
+  - id: mixed_facts_judgments
+    name: "事实与判断混杂 / Mixed Facts and Judgments"
+    category: l1_hard_gate
+    severity: critical
+    industry: null
+    condition: "报告未明确区分事实（公开申报数据）、估计（市场共识）、假设（估值模型输入）、和判断（分析师观点）"
+    action_if_fail: reject
+    rationale: "混淆事实和判断会导致读者误判报告的可靠性。"
+
+  - id: missing_scenario_analysis
+    name: "缺少情景分析 / Missing Scenario Analysis"
+    category: l1_hard_gate
+    severity: critical
+    industry: null
+    condition: "报告未包含牛市/基准/熊市情景分析或等效的区间思维"
+    action_if_fail: reject
+    rationale: "单一目标价或单一结论的报告不具备决策参考价值。"
+
+  - id: weak_token_bear_case
+    name: "熊市分析敷衍 / Weak Token Bear Case"
+    category: l1_hard_gate
+    severity: critical
+    industry: null
+    condition: "熊市分析仅1-2句话，没有具体数据支撑，或比牛市分析显著薄弱"
+    action_if_fail: reject
+    rationale: "敷衍的熊市分析等同于没有分析。熊市论点必须与牛市论点同等深度。"
+
+  - id: no_differentiated_view
+    name: "无差异化观点 / No Differentiated View"
+    category: l1_hard_gate
+    severity: critical
+    industry: null
+    condition: "报告未声明当前市场共识，也未说明本报告的差异点"
+    action_if_fail: flag
+    rationale: "没有差异化观点的报告只是一份摘要，不产生alpha。此门不直接拒绝，但必须标注为'不完整'。"
+
+  - id: hidden_valuation_assumptions
+    name: "估值假设不透明 / Hidden Valuation Assumptions"
+    category: l1_hard_gate
+    severity: critical
+    industry: null
+    condition: "估值部分未明确列出收入CAGR、终端利润率、WACC、终端增长率或退出倍数等关键假设"
+    action_if_fail: reject
+    rationale: "如果估值假设不可见，估值结果不可信。"

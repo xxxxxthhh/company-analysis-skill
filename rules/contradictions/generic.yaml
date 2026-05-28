@@ -1,0 +1,97 @@
+# Contradiction Hunter Rules — Generic (cross-industry)
+#
+# These are signals where the data does not fit the easy story.
+# Each rule defines a pattern that, when detected, should be flagged
+# as a potential contradiction in the research report.
+#
+# Schema:
+#   id: unique identifier
+#   name: display name
+#   category: contradiction
+#   severity: critical | warning
+#   industry: null  (null = applies to all industries)
+#   condition: human-readable condition; scripts parse this for automated detection
+#   action_if_fail: flag
+#   rationale: why this contradiction matters for alpha
+
+rules:
+  - id: growth_vs_fcf_deterioration
+    name: "高增长 + FCF恶化 / High Growth + Deteriorating FCF"
+    category: contradiction
+    severity: critical
+    industry: null
+    condition: "revenue_cagr_3y > 0.25 AND fcf_margin_trend < -0.05"
+    action_if_fail: flag
+    rationale: "收入高增长但现金流恶化意味着增长质量差。可能是应收账款激增、客户付款条件恶化、或一次性大额合同。如果是因为运营资本的一次性影响，矛盾可能是噪音。需要区分。"
+
+  - id: gross_margin_up_no_op_leverage
+    name: "毛利升但经营杠杆不跟 / Gross Margin Up Without Operating Leverage"
+    category: contradiction
+    severity: warning
+    industry: null
+    condition: "gross_margin_delta_3y > 0.05 AND op_margin_delta_3y < 0.02"
+    action_if_fail: flag
+    rationale: "毛利率提升意味着产品/单位经济改善，但经营利润率没跟上，说明费用端（研发、销售、管理费用或SBC）在吸收利润。如果是前期投入带来的暂时性费用增长，可能被市场错误定价。需要区分投入效率还是结构性浪费。"
+
+  - id: sbc_dilution_high
+    name: "高SBC稀释 / High SBC Dilution"
+    category: contradiction
+    severity: critical
+    industry: null
+    condition: "sbc_as_revenue > 0.10"
+    action_if_fail: flag
+    rationale: "SBC超过营收的10%意味着每股经济价值被持续稀释。公司层面的增长数字可能掩盖每股层面的停滞。如果SBC在快速下降或已充分反映在稀释股数中，稀释风险可能被过度夸大。"
+
+  - id: inventory_growth_exceeds_revenue
+    name: "库存增速 > 营收增速 / Inventory Growing Faster Than Revenue"
+    category: contradiction
+    severity: warning
+    industry: null
+    condition: "inventory_growth_yoy > revenue_growth_yoy * 1.5 AND revenue_growth_yoy > 0"
+    action_if_fail: flag
+    rationale: "库存增速显著超过营收增速可能意味着产品滞销、需求判断失误、或渠道库存积压。对制造业和零售业尤为重要。如果是因为新产品备货或供应链前置，可能是正常的。"
+
+  - id: goodwill_concentration
+    name: "商誉占比过高 / Goodwill Concentration"
+    category: contradiction
+    severity: warning
+    industry: null
+    condition: "goodwill_to_assets > 0.30"
+    action_if_fail: flag
+    rationale: "商誉超过总资产的30%意味着大量并购，后续减值测试可能引发计提。需要检查并购标的的实际表现是否支撑商誉估值。在并购驱动的成长故事中尤其重要。"
+
+  - id: ar_growth_exceeds_revenue
+    name: "应收账款增速 > 营收增速 / AR Growing Faster Than Revenue"
+    category: contradiction
+    severity: warning
+    industry: null
+    condition: "ar_growth_yoy > revenue_growth_yoy * 1.3"
+    action_if_fail: flag
+    rationale: "应收账款增速持续超过营收增速可能意味着激进的收入确认、客户付款周期延长、或渠道压货（channel stuffing）。DSO趋势上升是验证信号。"
+
+  - id: fcf_below_net_income
+    name: "经营现金流持续低于净利润 / OCF Persistently Below Net Income"
+    category: contradiction
+    severity: warning
+    industry: null
+    condition: "ocf_to_ni_3y_avg < 0.80"
+    action_if_fail: flag
+    rationale: "如果三年的经营现金流平均不到净利润的80%，说明盈利质量有问题。可能是应收账款堆积、库存积压、或非现金收入占比过高。需要区分商业模式特征（如订阅制的递延收入）和会计风险。"
+
+  - id: debt_funded_buybacks
+    name: "债务驱动回购 / Debt-Funded Buybacks"
+    category: contradiction
+    severity: warning
+    industry: null
+    condition: "net_debt_increase > share_buyback_amount AND share_buyback_amount > 0"
+    action_if_fail: flag
+    rationale: "用借来的钱回购股票在高估值时是价值破坏。如果利率上升，债务成本可能超过回购的EPS增厚效果。需要分析回购价格 vs 内在价值。"
+
+  - id: guidance_miss_pattern
+    name: "指引持续未达标 / Persistent Guidance Miss"
+    category: contradiction
+    severity: critical
+    industry: null
+    condition: "guidance_hit_rate_last_4_quarters < 0.50"
+    action_if_fail: flag
+    rationale: "管理层连续两个季度以上未达指引意味着要么预测能力差，要么故意调高预期。两种情况都降低管理层可信度。需要与管理层沟通记录交叉验证。"

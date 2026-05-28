@@ -1,0 +1,95 @@
+# L3 Style Guide Constraints
+# These are style and quality constraints for research reports.
+# Violations do not block publication but degrade quality.
+#
+# Schema:
+#   id: unique identifier
+#   name: display name
+#   category: l3_style
+#   severity: warning | info
+#   industry: null (style rules apply universally)
+#   condition: human-readable condition to check
+#   action_if_fail: warn
+#   rationale: why this matters
+
+rules:
+  - id: style_no_boilerplate
+    name: "无废话 / No Boilerplate"
+    category: l3_style
+    severity: warning
+    industry: null
+    condition: "报告包含不提供信息的套话（如'该公司具有广阔前景'、'值得关注'等没有具体数据和逻辑支撑的表述）"
+    action_if_fail: warn
+    rationale: "老大偏好直接、有判断的沟通，反对空洞的礼貌用语和模糊表述。"
+
+  - id: style_conclusion_first
+    name: "结论先行 / Conclusion First"
+    category: l3_style
+    severity: warning
+    industry: null
+    condition: "报告的结论（投资判断、方向性观点）出现在前20%位置，而非埋在后半部分"
+    action_if_fail: warn
+    rationale: "老大偏好结论→理由→风险→行动的输出结构。不要把最重要的信息藏在最后。"
+
+  - id: style_bilingual_headers
+    name: "中英双语标题 / Bilingual Headers"
+    category: l3_style
+    severity: info
+    industry: null
+    condition: "报告章节标题和关键术语同时提供中文和英文（如：## 1. Executive Summary / 执行摘要）"
+    action_if_fail: warn
+    rationale: "默认中英双语输出，确保中文可读性和英文术语准确性。"
+
+  - id: style_separate_layers
+    name: "分层标注 / Layer Separation"
+    category: l3_style
+    severity: warning
+    industry: null
+    condition: "报告中使用 [FACT] / [EST] / [ASSUMPTION] / [JUDGMENT] 标签区分信息来源的可靠性"
+    action_if_fail: warn
+    rationale: "读者需要知道每个数字是来自SEC申报的客观事实，还是分析师的估计或假设。"
+
+  - id: style_so_what_every_section
+    name: "每节必有So What / So What in Every Section"
+    category: l3_style
+    severity: warning
+    industry: null
+    condition: "报告的每个主要数据章节（财务、竞争、管理层、估值）末尾有 'So What' 和 'What If Wrong' 子节"
+    action_if_fail: warn
+    rationale: "数据堆砌不产生价值。每份数据都需要解释'这意味着什么'和'如果这个判断错了会怎样'。"
+
+  - id: style_no_black_box_valuation
+    name: "估值假设透明 / Transparent Valuation"
+    category: l3_style
+    severity: warning
+    industry: null
+    condition: "估值部分以表格形式列出所有关键假设（CAGR、终端利润率、WACC、终端增长率、稀释股数），而非隐藏在文字中"
+    action_if_fail: warn
+    rationale: "黑箱估值等于没有估值。老大需要看到什么假设驱动了什么结果。"
+
+  - id: style_moat_trend
+    name: "护城河趋势 / Moat Trend"
+    category: l3_style
+    severity: info
+    industry: null
+    condition: "护城河分析不仅描述当前的护城河类型，还明确标注护城河是'扩大/稳定/缩小'中"
+    action_if_fail: warn
+    rationale: "静态护城河描述不如动态趋势有价值。读者需要知道公司的竞争优势在增强还是减弱。"
+
+  - id: style_stale_data_marked
+    name: "过时数据标注 / Stale Data Marking"
+    category: l3_style
+    severity: warning
+    industry: null
+    condition: "如果报告是已有研究的更新版本，旧数据用 ~~strikethrough~~ 标记，新数据紧跟其后"
+    action_if_fail: warn
+    rationale: "Coinbase报告展示了UPDATED数据的正确处理方式——不删除旧数据，让读者看到数据的演进。"
+
+  - id: style_concise_actionable
+    name: "简洁可执行 / Concise & Actionable"
+    category: l3_style
+    severity: warning
+    industry: null
+    condition: "报告末尾的'下一检查点'是具体的、可验证的（如'关注2026Q2财报中的ARR增速是否>20%'），而非模糊建议（如'持续关注公司发展'）"
+    action_if_fail: warn
+    rationale: "模糊的下一步建议等于没有建议。老大需要可执行、可验证的监控信号。"

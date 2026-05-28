@@ -1,0 +1,71 @@
+# Contradiction Hunter Rules — SaaS / Cloud
+#
+# SaaS-specific contradiction patterns.
+# After loading generic.yaml, load this for SaaS/cloud companies.
+# SaaS rules override or supplement generic rules.
+#
+# Schema: same as generic.yaml
+
+rules:
+  - id: saas_rule_of_40_contradiction
+    name: "Rule of 40 低但估值高 / Low Rule of 40 + High Multiple"
+    category: contradiction
+    severity: critical
+    industry: saas
+    condition: "rule_of_40 < 0.20 AND ev_ntm_revenue > 12"
+    action_if_fail: flag
+    rationale: "Rule of 40 < 20 意味着增长效率差，但EV/NTM Revenue > 12x 意味着市场给了高成长溢价。这两个信号矛盾——市场要么在赌未来改善，要么定价不合理。需要区分投资期阵痛和结构性低效。"
+
+  - id: saas_nrr_below_100
+    name: "NRR < 100% / Net Revenue Retention Below 100%"
+    category: contradiction
+    severity: critical
+    industry: saas
+    condition: "nrr < 1.00"
+    action_if_fail: flag
+    rationale: "NRR < 100% 是SaaS最危险的信号之一。意味着现有客户在缩减支出，所有增长都依赖新客获取。如果新客增长同时减速，这就是'死亡螺旋'的前兆。需要立即检查是否是暂时性（大客户一次性削减）还是结构性（产品竞争力下降）。"
+
+  - id: saas_sbc_extreme
+    name: "极端SBC稀释 / Extreme SBC Dilution"
+    category: contradiction
+    severity: critical
+    industry: saas
+    condition: "sbc_as_revenue > 0.25"
+    action_if_fail: flag
+    rationale: "SaaS公司SBC > 25%营收意味着每股经济价值被严重稀释。公司层面的ARR增长40%可能被完全抵消。必须用完全稀释股数重新计算每股指标。如果SBC趋势在快速下降，可能是路径问题而非结构性问题。"
+
+  - id: saas_cac_payback_worsening
+    name: "CAC回收期恶化 + 增长减速 / CAC Payback Worsening + Growth Deceleration"
+    category: contradiction
+    severity: warning
+    industry: saas
+    condition: "cac_payback_months_increasing AND revenue_growth_decelerating"
+    action_if_fail: flag
+    rationale: "获取客户的成本在上升，但回报在下降——这是最糟糕的组合。通常意味着市场饱和度提高或产品差异化减弱。需要分解是新客CAC恶化还是存量客户扩张效率下降。"
+
+  - id: saas_rpo_growth_gap
+    name: "RPO增速与收入增速差距 / RPO vs Revenue Growth Gap"
+    category: contradiction
+    severity: warning
+    industry: saas
+    condition: "rpo_growth < revenue_growth * 0.5 AND revenue_growth > 0.15"
+    action_if_fail: flag
+    rationale: "RPO是未来收入的先行指标。当RPO增速远低于收入增速时，意味着新签合同在减速，当前的高收入增长可能是'吃老本'——消耗过去积累的未确认收入。这是一个重要的拐点信号。"
+
+  - id: saas_smb_concentration_risk
+    name: "SMB客户集中度风险 / SMB Concentration Risk"
+    category: contradiction
+    severity: warning
+    industry: saas
+    condition: "smb_revenue_share > 0.60 AND macro_headwinds_present"
+    action_if_fail: flag
+    rationale: "SMB客户占比过高在经济下行时风险大——小企业更容易砍SaaS支出或倒闭。如果公司声称'SMB客户粘性高'但宏观环境恶化，这是一个需要压力测试的矛盾。"
+
+  - id: saas_margin_gap_vs_peers
+    name: "利润率大幅低于同行 / Significant Margin Gap vs Peers"
+    category: contradiction
+    severity: warning
+    industry: saas
+    condition: "gross_margin < peer_median * 0.85"
+    action_if_fail: flag
+    rationale: "SaaS毛利率通常 > 70%。如果显著低于同行，可能意味着：1) 客户支持成本高（产品不成熟），2) 基础设施成本高（技术架构问题），3) 价格战（竞争压力）。每个原因都是不同的风险。"
